@@ -4,36 +4,56 @@ import json
 from supabase import create_client, Client
 
 # =====================================================================
-# CONFIGURATION DE LA PAGE & DESIGN ÉPURÉ (SANS LOGOS STREAMLIT/GITHUB)
+# CONFIGURATION DE LA PAGE & DESIGN ULTRA-MOBILE (RESPONSIVE)
 # =====================================================================
 st.set_page_config(page_title="Système LOTO - Sécurité", page_icon="🔒", layout="centered")
 
-# CSS injecté pour masquer absolument tous les éléments d'administration de Streamlit
+# CSS hautement optimisé pour l'affichage sur smartphone et tablette
 st.markdown("""
     <style>
-    /* Masquer le menu hamburger (3 petits points) et l'en-tête */
+    /* Masquer tous les menus et barres Streamlit/GitHub */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     .stAppHeader {display: none !important;}
-    
-    /* Masquer le bouton de déploiement en haut à droite */
     .stAppDeployButton {display: none !important;}
-    
-    /* Masquer le pied de page ("Made with Streamlit") et le logo GitHub */
     footer {display: none !important; visibility: hidden !important;}
     div[data-testid="stFooter"] {display: none !important;}
     div[data-testid="stThemeProvider"] {display: none !important;}
     .viewerBadge_link__1S137 {display: none !important;}
     
-    /* Nettoyage des bordures et espaces inutiles en haut de la page */
+    /* Optimisation des marges pour mobile (évite de devoir scroller) */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 1rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
     
-    /* Styles de l'application */
+    /* Design responsive du logo Managem pour qu'il s'adapte à tous les écrans */
+    .logo-container {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    .logo-container img {
+        width: 100%;
+        max-width: 220px; /* Taille idéale sur PC */
+        height: auto;
+    }
+    @media (max-width: 480px) {
+        .logo-container img {
+            max-width: 160px; /* Taille ajustée pour les petits écrans de téléphone */
+        }
+    }
+
+    /* Ajustement des boutons et formulaires pour le tactile */
     .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 8px; height: 3em; font-weight: bold; }
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 8px; 
+        height: 3.2em; 
+        font-weight: bold; 
+        font-size: 16px !important; /* Facile à cliquer avec le pouce */
+    }
     div.stLabel { font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
@@ -85,17 +105,17 @@ if st.session_state.succes_action:
     st.stop()
 
 # =====================================================================
-# ÉCRAN 1 : CONNEXION SÉCURISÉE (AVEC LOGO MANAGEM)
+# ÉCRAN 1 : CONNEXION SÉCURISÉE (AVEC LOGO RESPONSIVE)
 # =====================================================================
 if st.session_state.employe is None:
-    # Intégration du logo du Groupe Managem centré proprement
+    # Conteneur de logo optimisé pour la taille d'écran
     st.markdown("""
-        <div style="text-align: center;">
-            <img src="https://images.seeklogo.com/logo-png/31/1/groupe-managem-logo-png_seeklogo-318160.png" alt="Logo Managem" style="max-width: 250px; margin-bottom: 25px;">
+        <div class="logo-container">
+            <img src="https://images.seeklogo.com/logo-png/31/1/groupe-managem-logo-png_seeklogo-318160.png" alt="Logo Managem">
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<h2 style='text-align: center; color: #2c3e50; margin-top:0;'>🔒 Connexion Sécurisée LOTO</h2>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #2c3e50; margin-top:0; font-size: 20px;'>🔒 Connexion Sécurisée LOTO</h3>", unsafe_allow_html=True)
     
     with st.container(border=True):
         matricule = st.text_input("Numéro Employé (Matricule)", placeholder="Ex: EMP-1234").strip()
@@ -119,8 +139,8 @@ if st.session_state.employe is None:
 # ÉCRAN 2 : ACCUEIL & RECHERCHE
 # =====================================================================
 elif st.session_state.systeme is None:
-    st.markdown(f"<h3 style='color: #27ae60;'>👋 Bienvenue, {st.session_state.employe['nom_prenom']}</h3>", unsafe_allow_html=True)
-    st.markdown("<h4>🏠 Accueil - Recherche Système</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='color: #27ae60;'>👋 Bienvenue, {st.session_state.employe['nom_prenom']}</h4>", unsafe_allow_html=True)
+    st.markdown("<h5>🏠 Accueil - Recherche Système</h5>", unsafe_allow_html=True)
     
     with st.container(border=True):
         code_recherche = st.text_input("Scanner ou chercher la machine :", placeholder="Ex: Ligne d'embouteillage A")
@@ -163,7 +183,7 @@ else:
     except:
         is_consigne = False
 
-    col_btn, col_status = st.columns([1, 2])
+    col_btn, col_status = st.columns([1, 1])
     with col_btn:
         if st.button("⬅ Retour"):
             st.session_state.systeme = None
@@ -171,16 +191,16 @@ else:
             
     with col_status:
         if is_consigne:
-            st.markdown("<p style='text-align:right; font-weight:bold; color:#c0392b; font-size:18px;'>État actuel : 🔴 CONSIGNÉ</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:right; font-weight:bold; color:#c0392b; font-size:15px; margin-top:10px;'>🔴 CONSIGNÉ</p>", unsafe_allow_html=True)
         else:
-            st.markdown("<p style='text-align:right; font-weight:bold; color:#27ae60; font-size:18px;'>État actuel : 🟢 LIBRE</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:right; font-weight:bold; color:#27ae60; font-size:15px; margin-top:10px;'> 🟢 LIBRE</p>", unsafe_allow_html=True)
 
     action_type = "DECONSIGNATION" if is_consigne else "CONSIGNATION"
     couleur = "#27ae60" if is_consigne else "#c0392b"
     titre_action = "🔓 Déconsignation" if is_consigne else "🔴 Consignation"
-    instruction = "Retirez vos cadenas et cochez pour libérer :" if is_consigne else "Cochez après pose de votre cadenas physique :"
+    instruction = "Retirez vos cadenas et cochez pour libérer :" if is_consigne else "Cochez après pose de votre cadenas :"
 
-    st.markdown(f"<h2 style='color: {couleur};'>{titre_action} : {sys_nom}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color: {couleur}; font-size: 20px; margin-top: 10px;'>{titre_action} : {sys_nom}</h3>", unsafe_allow_html=True)
     st.info(instruction)
 
     try:
@@ -212,9 +232,9 @@ else:
                 f.write(json.dumps(donnees, ensure_ascii=False) + "\n")
                 
             if action_type == "CONSIGNATION":
-                st.session_state.succes_action = f"🎉 CONSIGNATION RÉUSSIE ! Le système {sys_nom} est maintenant sécurisé et verrouillé."
+                st.session_state.succes_action = f"🎉 CONSIGNATION RÉUSSIE ! Le système {sys_nom} est maintenant sécurisé."
             else:
-                st.session_state.succes_action = f"🎉 DÉCONSIGNATION RÉUSSIE ! Le système {sys_nom} est libéré et prêt à redémarrer."
+                st.session_state.succes_action = f"🎉 DÉCONSIGNATION RÉUSSIE ! Le système {sys_nom} est libéré."
             
             st.rerun()
         except Exception as e:
