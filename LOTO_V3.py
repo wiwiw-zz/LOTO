@@ -4,13 +4,16 @@ import json
 from supabase import create_client, Client
 
 # =====================================================================
-# CONFIGURATION DE LA PAGE & DESIGN INTERFACE
+# MASQUAGE DE LA BARRE D'ADMINISTRATION & DES MENUS STREAMLIT
 # =====================================================================
 st.set_page_config(page_title="Système LOTO - Sécurité", page_icon="🔒", layout="centered")
 
-# Personnalisation élégante des boutons et des encadrés
 st.markdown("""
     <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppDeployButton {display: none;}
     .main { background-color: #f8f9fa; }
     .stButton>button { width: 100%; border-radius: 8px; height: 3em; font-weight: bold; }
     div.stLabel { font-weight: bold; }
@@ -32,17 +35,49 @@ try:
 except Exception as e:
     st.error(f"Erreur Supabase : {e}")
 
-# Initialisation des variables de session (mémoire de l'application web)
+# Initialisation des variables de session
 if "employe" not in st.session_state:
     st.session_state.employe = None
 if "systeme" not in st.session_state:
     st.session_state.systeme = None
+if "succes_action" not in st.session_state:
+    st.session_state.succes_action = None
+
+# Détection automatique de la machine via le QR Code (Lien URL)
+query_params = st.query_params
+if "machine" in query_params and st.session_state.systeme is None:
+    code_url = query_params["machine"]
+    try:
+        res_url = supabase.table("systemes").select("*").eq("code_qr_recherche", code_url).execute()
+        if res_url.data:
+            st.session_state.systeme = res_url.data[0]
+    except:
+        pass
 
 # =====================================================================
-# ÉCRAN 1 : CONNEXION SÉCURISÉE (CHAMPS VIDES)
+# ÉCRAN DE SUCCÈS (Bloquant, demande validation)
+# =====================================================================
+if st.session_state.succes_action:
+    st.success(st.session_state.succes_action)
+    if st.button("🔄 Continuer (Retour à l'accueil)"):
+        st.session_state.succes_action = None
+        st.session_state.systeme = None
+        st.session_state.employe = None
+        st.rerun()
+    st.stop()
+
+# =====================================================================
+# ÉCRAN 1 : CONNEXION SÉCURISÉE (AVEC LOGO MANAGEM)
 # =====================================================================
 if st.session_state.employe is None:
-    st.markdown("<h2 style='text-align: center; color: #2c3e50;'>🔒 Connexion Sécurisée LOTO</h2>", unsafe_allow_html=True)
+    # Intégration du logo du Groupe Managem centré proprement
+    st.markdown("""
+        <div style="text-align: center;">
+            <img src="https://images.seeklogo.com/logo-png/31/1/groupe-managem-logo-png_seeklogo-318160.png" alt="Logo Managem" style="max-width: 250px; margin-bottom: 25px;">
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<h2 style='text-align: center; color: #2c3e50; margin-top:0;'>🔒 Connexion Sécurisée LOTO</h2>", unsafe_allow_html=True)
     
     with st.container(border=True):
         matricule = st.text_input("Numéro Employé (Matricule)", placeholder="Ex: EMP-1234").strip()
@@ -63,7 +98,7 @@ if st.session_state.employe is None:
                 st.warning("Veuillez remplir tous les champs.")
 
 # =====================================================================
-# ÉCRAN 2 : ACCUEIL & RECHERCHE DE LA MACHINE
+# ÉCRAN 2 : ACCUEIL & RECHERCHE
 # =====================================================================
 elif st.session_state.systeme is None:
     st.markdown(f"<h3 style='color: #27ae60;'>👋 Bienvenue, {st.session_state.employe['nom_prenom']}</h3>", unsafe_allow_html=True)
@@ -98,20 +133,18 @@ elif st.session_state.systeme is None:
         st.rerun()
 
 # =====================================================================
-# ÉCRAN 3 : CHECK-LIST DYNAMIQUE (CONSIGNATION / DÉCONSIGNATION)
+# ÉCRAN 3 : CHECK-LIST
 # =====================================================================
 else:
     sys_nom = st.session_state.systeme["nom"]
     sys_id = st.session_state.systeme["id"]
     
-    # Lecture en temps réel du dernier état sur Supabase
     try:
         res_etat = supabase.table("historique_consignations").select("action").eq("nom_systeme", sys_nom).order("created_at", desc=True).limit(1).execute()
         is_consigne = res_etat.data and res_etat.data[0]["action"] == "CONSIGNATION"
     except:
         is_consigne = False
 
-    # Barre de navigation haute adaptative
     col_btn, col_status = st.columns([1, 2])
     with col_btn:
         if st.button("⬅ Retour"):
@@ -124,7 +157,6 @@ else:
         else:
             st.markdown("<p style='text-align:right; font-weight:bold; color:#27ae60; font-size:18px;'>État actuel : 🟢 LIBRE</p>", unsafe_allow_html=True)
 
-    # Paramétrage visuel selon le statut (Rouge = Consignation, Vert = Déconsignation)
     action_type = "DECONSIGNATION" if is_consigne else "CONSIGNATION"
     couleur = "#27ae60" if is_consigne else "#c0392b"
     titre_action = "🔓 Déconsignation" if is_consigne else "🔴 Consignation"
@@ -133,14 +165,12 @@ else:
     st.markdown(f"<h2 style='color: {couleur};'>{titre_action} : {sys_nom}</h2>", unsafe_allow_html=True)
     st.info(instruction)
 
-    # Récupération dynamique des équipements de la machine
     try:
         res_eq = supabase.table("equipments").select("*").eq("systeme_id", sys_id).execute()
         equipements = [e["nom_equipement"] for e in res_eq.data]
     except:
         equipements = []
 
-    # Génération de la check-list
     cases_cochees = []
     with st.container(border=True):
         for eq in equipements:
@@ -149,7 +179,6 @@ else:
 
     toutes_cochees = all(cases_cochees) if cases_cochees else False
     
-    # Bouton de validation (bloqué tant que tout n'est pas coché)
     if st.button(f"VALIDER LA {action_type}", type="primary", disabled=not toutes_cochees):
         donnees = {
             "matricule_employe": st.session_state.employe["matricule"],
@@ -158,19 +187,17 @@ else:
             "equipement": ", ".join(equipements)
         }
         try:
-            # Envoi à Supabase
             supabase.table("historique_consignations").insert([donnees]).execute()
             
-            # Double sauvegarde locale réglementaire
             with open("backup_securite_loto.json", "a", encoding="utf-8") as f:
                 donnees["date_heure"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(json.dumps(donnees, ensure_ascii=False) + "\n")
                 
-            st.success("Opération réussie ! Redirection...")
+            if action_type == "CONSIGNATION":
+                st.session_state.succes_action = f"🎉 CONSIGNATION RÉUSSIE ! Le système {sys_nom} est maintenant sécurisé et verrouillé."
+            else:
+                st.session_state.succes_action = f"🎉 DÉCONSIGNATION RÉUSSIE ! Le système {sys_nom} est libéré et prêt à redémarrer."
             
-            # Déconnexion et reset pour l'opérateur suivant (sécurité d'usine)
-            st.session_state.employe = None
-            st.session_state.systeme = None
             st.rerun()
         except Exception as e:
             st.error(f"Erreur d'enregistrement : {e}")
