@@ -4,16 +4,34 @@ import json
 from supabase import create_client, Client
 
 # =====================================================================
-# MASQUAGE DE LA BARRE D'ADMINISTRATION & DES MENUS STREAMLIT
+# CONFIGURATION DE LA PAGE & DESIGN ÉPURÉ (SANS LOGOS STREAMLIT/GITHUB)
 # =====================================================================
 st.set_page_config(page_title="Système LOTO - Sécurité", page_icon="🔒", layout="centered")
 
+# CSS injecté pour masquer absolument tous les éléments d'administration de Streamlit
 st.markdown("""
     <style>
+    /* Masquer le menu hamburger (3 petits points) et l'en-tête */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stAppDeployButton {display: none;}
+    .stAppHeader {display: none !important;}
+    
+    /* Masquer le bouton de déploiement en haut à droite */
+    .stAppDeployButton {display: none !important;}
+    
+    /* Masquer le pied de page ("Made with Streamlit") et le logo GitHub */
+    footer {display: none !important; visibility: hidden !important;}
+    div[data-testid="stFooter"] {display: none !important;}
+    div[data-testid="stThemeProvider"] {display: none !important;}
+    .viewerBadge_link__1S137 {display: none !important;}
+    
+    /* Nettoyage des bordures et espaces inutiles en haut de la page */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* Styles de l'application */
     .main { background-color: #f8f9fa; }
     .stButton>button { width: 100%; border-radius: 8px; height: 3em; font-weight: bold; }
     div.stLabel { font-weight: bold; }
