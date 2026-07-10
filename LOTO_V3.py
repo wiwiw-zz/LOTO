@@ -36,12 +36,12 @@ st.markdown("""
     }
     .logo-container img {
         width: 100%;
-        max-width: 220px; /* Taille idéale sur PC */
+        max-width: 220px;
         height: auto;
     }
     @media (max-width: 480px) {
         .logo-container img {
-            max-width: 160px; /* Taille ajustée pour les petits écrans de téléphone */
+            max-width: 160px;
         }
     }
 
@@ -52,7 +52,7 @@ st.markdown("""
         border-radius: 8px; 
         height: 3.2em; 
         font-weight: bold; 
-        font-size: 16px !important; /* Facile à cliquer avec le pouce */
+        font-size: 16px !important;
     }
     div.stLabel { font-weight: bold; }
     </style>
@@ -108,7 +108,6 @@ if st.session_state.succes_action:
 # ÉCRAN 1 : CONNEXION SÉCURISÉE (AVEC LOGO RESPONSIVE)
 # =====================================================================
 if st.session_state.employe is None:
-    # Conteneur de logo optimisé pour la taille d'écran
     st.markdown("""
         <div class="logo-container">
             <img src="https://images.seeklogo.com/logo-png/31/1/groupe-managem-logo-png_seeklogo-318160.png" alt="Logo Managem">
@@ -166,6 +165,23 @@ elif st.session_state.systeme is None:
                 except Exception as e:
                     st.error(f"Erreur de recherche : {e}")
                     
+    # BOUTONS D'ACTION DU BAS
+    st.write("---")
+    
+    # 🔒 ACCÈS SÉCURISÉ ADMIN : Remplacez "ADMIN-LOTO" par votre vrai numéro de matricule
+    if st.session_state.employe["matricule"] == "ADMIN-LOTO":
+        try:
+            with open("backup_securite_loto.json", "r", encoding="utf-8") as f:
+                contenu_json = f.read()
+            st.download_button(
+                label="👑 [ADMIN] Télécharger le Rapport JSON",
+                data=contenu_json,
+                file_name="backup_securite_loto.json",
+                mime="application/json"
+            )
+        except:
+            st.caption("ℹ Aucun historique local pour le moment.")
+
     if st.button("🚪 Se déconnecter"):
         st.session_state.employe = None
         st.rerun()
