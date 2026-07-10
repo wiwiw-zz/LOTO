@@ -169,7 +169,7 @@ elif st.session_state.systeme is None:
     st.write("---")
     
     # 🔒 ACCÈS SÉCURISÉ ADMIN : Remplacez "ADMIN-LOTO" par votre vrai numéro de matricule
-    if st.session_state.employe["matricule"] == "ADMIN-LOTO":
+    if st.session_state.employe["matricule"] == "EMP-5678":
         try:
             with open("backup_securite_loto.json", "r", encoding="utf-8") as f:
                 contenu_json = f.read()
