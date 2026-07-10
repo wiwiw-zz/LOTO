@@ -110,7 +110,7 @@ if st.session_state.succes_action:
 if st.session_state.employe is None:
     st.markdown("""
         <div class="logo-container">
-            <img src="https://images.seeklogo.com/logo-png/31/1/groupe-managem-logo-png_seeklogo-318160.png" alt="Logo Managem">
+            <img src="https://www.managemgroup.com/themes/managem/logo.png" alt="Logo Managem">
         </div>
     """, unsafe_allow_html=True)
     
