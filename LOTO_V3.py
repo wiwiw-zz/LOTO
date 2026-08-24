@@ -248,6 +248,12 @@ elif st.session_state.employe["matricule"] == "EMP-5678":
                         df_out['Heure'] = df_tmp['Heure']
                         df_out['Action'] = df_tmp.get('action', '')
                         df_out['Nom Système'] = df_tmp.get('nom_systeme', '')
+                        # Champs LOTO additionnels si présents
+                        df_out['Dispositifs'] = df_tmp.get('devices_used', '')
+                        df_out['Tag Nom'] = df_tmp.get('tag_nom', '')
+                        df_out['Tag Date'] = df_tmp.get('tag_date', '')
+                        df_out['Tag Raison'] = df_tmp.get('tag_raison', '')
+                        df_out['Procedure complétée'] = df_tmp.get('procedure_completed', '')
 
                         # Boutons de téléchargement (3 colonnes)
                         col1, col2, col3 = st.columns(3)
@@ -592,6 +598,47 @@ else:
     st.markdown(f"<h3 style='color: {couleur}; font-size: 20px; margin-top: 10px;'>{titre_action} : {sys_nom}</h3>", unsafe_allow_html=True)
     st.info(instruction)
 
+    # --- LOTO Procedure: afficher les 6 étapes et collecter dispositifs/tag/VAT ---
+    steps = [
+        "1. Préparation et Notification",
+        "2. Séparation / Isolation",
+        "3. Condamnation (Lockout)",
+        "4. Signalisation (Tagout)",
+        "5. Purge et Dissipation des Énergies Résiduelles",
+        "6. Vérification d'Absence d'Énergie (VAE)"
+    ]
+
+    st.markdown("**🛠️ Procédure LOTO - Suivre les 6 étapes obligatoires**")
+    step_states = []
+    for i, s in enumerate(steps, start=1):
+        key_step = f"step_{sys_id}_{i}"
+        if key_step not in st.session_state:
+            st.session_state[key_step] = False
+        st.session_state[key_step] = st.checkbox(s, key=key_step)
+        step_states.append(st.session_state[key_step])
+
+    # Dispositifs utilisés (matériel)
+    try:
+        devices_options = [
+            'Bloque-disjoncteur', 'Verrou de vanne', 'Câble de consignation',
+            'Hasp (moraillon)', 'Cadenas individuel', 'Étiquette Tagout'
+        ]
+        devices_selected = st.multiselect("Dispositifs / Matériel utilisés", devices_options, key=f"devices_{sys_id}")
+    except:
+        devices_selected = []
+
+    # Informations d'étiquette (tag)
+    tag_nom_default = st.session_state.employe.get('nom_prenom', '') if st.session_state.employe else ''
+    tag_nom = st.text_input("Nom sur l'étiquette (Tag)", value=tag_nom_default, key=f"tag_nom_{sys_id}")
+    tag_raison = st.text_area("Raison de la consignation (étiquette)", value="", key=f"tag_raison_{sys_id}", height=80)
+    tag_date = datetime.datetime.now().strftime('%d/%m/%y')
+
+    # VAT confirmation
+    vat_key = f"vat_{sys_id}"
+    if vat_key not in st.session_state:
+        st.session_state[vat_key] = False
+    vat_done = st.checkbox("Vérification d'Absence d'Énergie (VAT) réalisée", key=vat_key)
+
     try:
         with st.spinner("Chargement des équipements..."):
             res_eq = supabase.table("equipments").select("*").eq("systeme_id", sys_id).execute()
@@ -622,12 +669,21 @@ else:
 
     toutes_cochees = all(cases_cochees) if cases_cochees else False
     
-    if st.button(f"VALIDER LA {action_type}", type="primary", disabled=not toutes_cochees):
+    # Bouton activé seulement si toutes les étapes LOTO cochées, VAT faite et toutes les cases d'équipement cochées
+    procedure_ok = all(step_states) and vat_done
+    can_validate = toutes_cochees and procedure_ok
+
+    if st.button(f"VALIDER LA {action_type}", type="primary", disabled=not can_validate):
         donnees = {
             "matricule_employe": st.session_state.employe["matricule"],
             "nom_systeme": sys_nom,
             "action": action_type,
-            "equipement": ", ".join(equipements)
+            "equipement": ", ".join(equipements),
+            "devices_used": ", ".join(devices_selected),
+            "tag_nom": tag_nom,
+            "tag_date": tag_date,
+            "tag_raison": tag_raison,
+            "procedure_completed": procedure_ok
         }
         try:
             with st.spinner("Enregistrement en cours..."):
