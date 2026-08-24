@@ -4,6 +4,7 @@ import json
 import csv
 import io
 import pandas as pd
+import os
 from supabase import create_client, Client
 
 # =====================================================================
@@ -64,8 +65,8 @@ st.markdown("""
 # =====================================================================
 # CONFIGURATION SUPABASE
 # =====================================================================
-SUPABASE_URL = "https://noyzqijchgowgvdbqawq.supabase.co"
-SUPABASE_KEY = "sb_publishable_1IodYTMF_8gD9aQN2blcCA_CjSK0mF2"
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://noyzqijchgowgvdbqawq.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_1IodYTMF_8gD9aQN2blcCA_CjSK0mF2")
 
 @st.cache_resource
 def init_supabase():
@@ -121,14 +122,16 @@ if st.session_state.employe is None:
     
     st.markdown("<h3 style='text-align: center; color: #2c3e50; margin-top:0; font-size: 20px;'>🔒 Connexion Sécurisée LOTO</h3>", unsafe_allow_html=True)
     
-    with st.container(border=True):
+    with st.form("login_form", clear_on_submit=False):
         matricule = st.text_input("Numéro Employé (Matricule)", placeholder="Ex: EMP-1234").strip()
         pin = st.text_input("Code Confidentiel (PIN)", type="password", placeholder="••••").strip()
-        
-        if st.button("ENTRER", type="primary"):
+        submit_login = st.form_submit_button("ENTRER")
+
+        if submit_login:
             if matricule and pin:
                 try:
-                    reponse = supabase.table("employes").select("*").eq("matricule", matricule).eq("code_confidentiel", pin).execute()
+                    with st.spinner("Vérification en cours..."):
+                        reponse = supabase.table("employes").select("*").eq("matricule", matricule).eq("code_confidentiel", pin).execute()
                     if reponse.data:
                         st.session_state.employe = reponse.data[0]
                         st.rerun()
@@ -183,7 +186,8 @@ elif st.session_state.employe["matricule"] == "EMP-5678":
         # Récupérer les données filtrées par mois
         try:
             # Récupérer l'historique complet
-            res_historique = supabase.table("historique_consignations").select("*").order("created_at", desc=True).execute()
+            with st.spinner("Récupération de l'historique..."):
+                res_historique = supabase.table("historique_consignations").select("*").order("created_at", desc=True).execute()
             
             if res_historique.data:
                 # Convertir en DataFrame
@@ -466,25 +470,7 @@ elif st.session_state.employe["matricule"] == "EMP-5678":
                 st.markdown(f"**📊 {len(df_table)} entrées dans '{table_choice}'**")
                 st.dataframe(df_table, use_container_width=True)
                 
-                # ================= SECTION SUPPRESSION =================
-                st.markdown("<h5 style='color: #e74c3c;'>🗑️ Supprimer un enregistrement</h5>", unsafe_allow_html=True)
-                
-                if 'id' in df_table.columns:
-                    col_del1, col_del2 = st.columns([3, 1])
-                    with col_del1:
-                        id_to_delete = st.selectbox(
-                            "Sélectionner l'ID à supprimer :",
-                            df_table['id'].tolist(),
-                            key=f"delete_{table_choice}"
-                        )
-                    with col_del2:
-                        if st.button("❌ Supprimer", type="secondary", key=f"btn_del_{table_choice}"):
-                            try:
-                                supabase.table(table_choice).delete().eq("id", id_to_delete).execute()
-                                st.success(f"✅ Enregistrement {id_to_delete} supprimé de '{table_choice}'")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erreur lors de la suppression : {e}")
+                # Section suppression retirée : affichage en lecture seule uniquement
             else:
                 st.write(f"Aucune donnée dans '{table_choice}'.")
         except Exception as e:
@@ -518,7 +504,8 @@ elif st.session_state.systeme is None:
         if btn_chercher or btn_simul:
             if code_recherche:
                 try:
-                    res_systeme = supabase.table("systemes").select("*").or_(f"code_qr_recherche.eq.{code_recherche},nom.ilike.%{code_recherche}%").execute()
+                    with st.spinner("Recherche du système..."):
+                        res_systeme = supabase.table("systemes").select("*").or_(f"code_qr_recherche.eq.{code_recherche},nom.ilike.%{code_recherche}%").execute()
                     if res_systeme.data:
                         st.session_state.systeme = res_systeme.data[0]
                         st.rerun()
@@ -568,15 +555,31 @@ else:
     st.info(instruction)
 
     try:
-        res_eq = supabase.table("equipments").select("*").eq("systeme_id", sys_id).execute()
+        with st.spinner("Chargement des équipements..."):
+            res_eq = supabase.table("equipments").select("*").eq("systeme_id", sys_id).execute()
         equipements = [e["nom_equipement"] for e in res_eq.data]
     except:
         equipements = []
 
+    # Bouton pour tout cocher
+    if equipements:
+        col_all1, col_all2 = st.columns([3,1])
+        with col_all1:
+            st.markdown(f"**Équipements ({len(equipements)}) :**")
+        with col_all2:
+            if st.button("✅ Tout cocher", key=f"btn_all_{sys_id}"):
+                for eq in equipements:
+                    st.session_state[f"check_{sys_id}_{eq}"] = True
+                st.rerun()
+
     cases_cochees = []
     with st.container(border=True):
         for eq in equipements:
-            coche = st.checkbox(eq, key=eq)
+            key_name = f"check_{sys_id}_{eq}"
+            # preserve previous state if exists
+            if key_name not in st.session_state:
+                st.session_state[key_name] = False
+            coche = st.checkbox(eq, key=key_name)
             cases_cochees.append(coche)
 
     toutes_cochees = all(cases_cochees) if cases_cochees else False
@@ -589,17 +592,18 @@ else:
             "equipement": ", ".join(equipements)
         }
         try:
-            supabase.table("historique_consignations").insert([donnees]).execute()
-            
+            with st.spinner("Enregistrement en cours..."):
+                supabase.table("historique_consignations").insert([donnees]).execute()
+
             with open("backup_securite_loto.json", "a", encoding="utf-8") as f:
                 donnees["date_heure"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(json.dumps(donnees, ensure_ascii=False) + "\n")
-                
+
             if action_type == "CONSIGNATION":
                 st.session_state.succes_action = f"🎉 CONSIGNATION RÉUSSIE ! Le système {sys_nom} est maintenant sécurisé."
             else:
                 st.session_state.succes_action = f"🎉 DÉCONSIGNATION RÉUSSIE ! Le système {sys_nom} est libéré."
-            
+
             st.rerun()
         except Exception as e:
             st.error(f"Erreur d'enregistrement : {e}")
