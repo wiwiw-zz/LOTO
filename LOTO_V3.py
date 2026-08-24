@@ -208,63 +208,101 @@ elif st.session_state.employe["matricule"] == "EMP-5678":
                 if len(df_filtered) > 0:
                     st.success(f"✅ {len(df_filtered)} entrées trouvées pour {datetime.date(annee_selected, mois_selected, 1).strftime('%B %Y')}")
                     
-                    # Boutons de téléchargement (3 colonnes)
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        # Télécharger en EXCEL
+                    # Préparer sortie : ne conserver que les colonnes demandées
+                    try:
+                        # Récupérer les noms d'employés pour compléter depuis la table employes
                         try:
-                            output = io.BytesIO()
-                            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                df_filtered.to_excel(writer, index=False, sheet_name='Historique')
-                                
-                                # Formater le fichier Excel
-                                workbook = writer.book
-                                worksheet = writer.sheets['Historique']
-                                
-                                # Ajuster la largeur des colonnes
-                                for i, column in enumerate(df_filtered.columns, 1):
-                                    worksheet.column_dimensions[chr(64 + i)].width = 20
-                            
-                            output.seek(0)
-                            st.download_button(
-                                label="📊 Excel",
-                                data=output.getvalue(),
-                                file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                            )
-                        except Exception as e:
-                            st.error(f"Erreur Excel : {e}")
-                    
-                    with col2:
-                        # Télécharger en JSON
-                        try:
-                            json_data = json.dumps(df_filtered.to_dict('records'), ensure_ascii=False, indent=2, default=str)
-                            st.download_button(
-                                label="📄 JSON",
-                                data=json_data,
-                                file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.json",
-                                mime="application/json"
-                            )
-                        except Exception as e:
-                            st.error(f"Erreur JSON : {e}")
-                    
-                    with col3:
-                        # Télécharger en CSV
-                        try:
-                            csv_data = df_filtered.to_csv(index=False, encoding='utf-8')
-                            st.download_button(
-                                label="📋 CSV",
-                                data=csv_data,
-                                file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.csv",
-                                mime="text/csv"
-                            )
-                        except Exception as e:
-                            st.error(f"Erreur CSV : {e}")
-                    
-                    # Afficher un aperçu
-                    st.markdown("**📋 Aperçu des données :**")
-                    st.dataframe(df_filtered, use_container_width=True)
+                            res_emps = supabase.table("employes").select("matricule, nom_prenom").execute()
+                            emp_map = {e["matricule"]: e.get("nom_prenom", "") for e in (res_emps.data or [])}
+                        except:
+                            emp_map = {}
+
+                        df_tmp = df_filtered.copy()
+
+                        # Si la colonne created_at existe, créer Date et Heure formats demandés
+                        if 'created_at' in df_tmp.columns:
+                            df_tmp['created_at'] = pd.to_datetime(df_tmp['created_at'], errors='coerce')
+                            df_tmp['Date'] = df_tmp['created_at'].dt.strftime('%d/%m/%y')
+                            df_tmp['Heure'] = df_tmp['created_at'].dt.strftime('%H:%M:%S')
+                        else:
+                            # fallback: si une colonne date_heure existe (backup local), essayer de l'utiliser
+                            if 'date_heure' in df_tmp.columns:
+                                df_tmp['date_heure'] = pd.to_datetime(df_tmp['date_heure'], errors='coerce')
+                                df_tmp['Date'] = df_tmp['date_heure'].dt.strftime('%d/%m/%y')
+                                df_tmp['Heure'] = df_tmp['date_heure'].dt.strftime('%H:%M:%S')
+                            else:
+                                df_tmp['Date'] = ''
+                                df_tmp['Heure'] = ''
+
+                        # Ajouter colonne nom_prenom si possible
+                        if 'matricule_employe' in df_tmp.columns:
+                            df_tmp['Nom et Prénom'] = df_tmp['matricule_employe'].map(emp_map).fillna('')
+                        else:
+                            df_tmp['Nom et Prénom'] = df_tmp.get('nom_prenom', '')
+
+                        # Construire DataFrame de sortie avec l'ordre demandé
+                        df_out = pd.DataFrame()
+                        df_out['Nom et Prénom'] = df_tmp['Nom et Prénom']
+                        df_out['Matricule'] = df_tmp.get('matricule_employe', '')
+                        df_out['Date'] = df_tmp['Date']
+                        df_out['Heure'] = df_tmp['Heure']
+                        df_out['Action'] = df_tmp.get('action', '')
+                        df_out['Nom Système'] = df_tmp.get('nom_systeme', '')
+
+                        # Boutons de téléchargement (3 colonnes)
+                        col1, col2, col3 = st.columns(3)
+
+                        with col1:
+                            # Télécharger en EXCEL
+                            try:
+                                output = io.BytesIO()
+                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                    df_out.to_excel(writer, index=False, sheet_name='Historique')
+                                    workbook = writer.book
+                                    worksheet = writer.sheets['Historique']
+                                    for i, column in enumerate(df_out.columns, 1):
+                                        worksheet.column_dimensions[chr(64 + i)].width = 20
+                                output.seek(0)
+                                st.download_button(
+                                    label="📊 Excel",
+                                    data=output.getvalue(),
+                                    file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+                            except Exception as e:
+                                st.error(f"Erreur Excel : {e}")
+
+                        with col2:
+                            # Télécharger en JSON
+                            try:
+                                json_data = json.dumps(df_out.to_dict('records'), ensure_ascii=False, indent=2, default=str)
+                                st.download_button(
+                                    label="📄 JSON",
+                                    data=json_data,
+                                    file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.json",
+                                    mime="application/json"
+                                )
+                            except Exception as e:
+                                st.error(f"Erreur JSON : {e}")
+
+                        with col3:
+                            # Télécharger en CSV
+                            try:
+                                csv_data = df_out.to_csv(index=False, encoding='utf-8')
+                                st.download_button(
+                                    label="📋 CSV",
+                                    data=csv_data,
+                                    file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.csv",
+                                    mime="text/csv"
+                                )
+                            except Exception as e:
+                                st.error(f"Erreur CSV : {e}")
+
+                        # Afficher un aperçu
+                        st.markdown("**📋 Aperçu des données :**")
+                        st.dataframe(df_out, use_container_width=True)
+                    except Exception as e:
+                        st.error(f"Erreur préparation export : {e}")
                 else:
                     st.warning(f"⚠️ Aucune donnée trouvée pour {datetime.date(annee_selected, mois_selected, 1).strftime('%B %Y')}")
             else:
