@@ -1,6 +1,9 @@
 import streamlit as st
 import datetime
 import json
+import csv
+import io
+import pandas as pd
 from supabase import create_client, Client
 
 # =====================================================================
@@ -168,19 +171,133 @@ elif st.session_state.systeme is None:
     # BOUTONS D'ACTION DU BAS
     st.write("---")
     
-    # 🔒 ACCÈS SÉCURISÉ ADMIN : Remplacez "ADMIN-LOTO" par votre vrai numéro de matricule
+    # 🔒 ACCÈS SÉCURISÉ ADMIN : Remplacez "EMP-5678" par votre vrai numéro de matricule
     if st.session_state.employe["matricule"] == "EMP-5678":
+        st.markdown("<h5 style='color: #8e44ad;'>👑 PANNEAU ADMIN</h5>", unsafe_allow_html=True)
+        
+        with st.expander("📊 Télécharger l'Historique de Consignation"):
+            # Sélecteur de mois
+            st.markdown("**📅 Sélectionner le mois :**")
+            col_mois, col_annee = st.columns(2)
+            
+            with col_mois:
+                mois_selected = st.selectbox(
+                    "Mois",
+                    list(range(1, 13)),
+                    format_func=lambda x: datetime.date(2024, x, 1).strftime("%B - %m")
+                )
+            
+            with col_annee:
+                annee_selected = st.number_input("Année", value=datetime.datetime.now().year, min_value=2020)
+            
+            # Récupérer les données filtrées par mois
+            try:
+                # Calculer les dates de début et fin du mois
+                date_debut = datetime.datetime(annee_selected, mois_selected, 1)
+                if mois_selected == 12:
+                    date_fin = datetime.datetime(annee_selected + 1, 1, 1) - datetime.timedelta(seconds=1)
+                else:
+                    date_fin = datetime.datetime(annee_selected, mois_selected + 1, 1) - datetime.timedelta(seconds=1)
+                
+                # Récupérer l'historique complet
+                res_historique = supabase.table("historique_consignations").select("*").order("created_at", desc=True).execute()
+                
+                if res_historique.data:
+                    # Convertir en DataFrame
+                    df = pd.DataFrame(res_historique.data)
+                    
+                    # Convertir la colonne created_at en datetime
+                    if 'created_at' in df.columns:
+                        df['created_at'] = pd.to_datetime(df['created_at'])
+                        
+                        # Filtrer par mois et année
+                        df_filtered = df[
+                            (df['created_at'].dt.month == mois_selected) & 
+                            (df['created_at'].dt.year == annee_selected)
+                        ]
+                    else:
+                        df_filtered = df
+                    
+                    if len(df_filtered) > 0:
+                        st.success(f"✅ {len(df_filtered)} entrées trouvées pour {datetime.date(annee_selected, mois_selected, 1).strftime('%B %Y')}")
+                        
+                        # Boutons de téléchargement (3 colonnes)
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            # Télécharger en EXCEL
+                            try:
+                                output = io.BytesIO()
+                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                    df_filtered.to_excel(writer, index=False, sheet_name='Historique')
+                                    
+                                    # Formater le fichier Excel
+                                    workbook = writer.book
+                                    worksheet = writer.sheets['Historique']
+                                    
+                                    # Ajuster la largeur des colonnes
+                                    for i, column in enumerate(df_filtered.columns, 1):
+                                        worksheet.column_dimensions[chr(64 + i)].width = 20
+                                
+                                output.seek(0)
+                                st.download_button(
+                                    label="📊 Excel",
+                                    data=output.getvalue(),
+                                    file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+                            except Exception as e:
+                                st.error(f"Erreur Excel : {e}")
+                        
+                        with col2:
+                            # Télécharger en JSON
+                            try:
+                                json_data = json.dumps(df_filtered.to_dict('records'), ensure_ascii=False, indent=2, default=str)
+                                st.download_button(
+                                    label="📄 JSON",
+                                    data=json_data,
+                                    file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.json",
+                                    mime="application/json"
+                                )
+                            except Exception as e:
+                                st.error(f"Erreur JSON : {e}")
+                        
+                        with col3:
+                            # Télécharger en CSV
+                            try:
+                                csv_data = df_filtered.to_csv(index=False, encoding='utf-8')
+                                st.download_button(
+                                    label="📋 CSV",
+                                    data=csv_data,
+                                    file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.csv",
+                                    mime="text/csv"
+                                )
+                            except Exception as e:
+                                st.error(f"Erreur CSV : {e}")
+                        
+                        # Afficher un aperçu
+                        st.markdown("**📋 Aperçu des données :**")
+                        st.dataframe(df_filtered, use_container_width=True)
+                    else:
+                        st.warning(f"⚠️ Aucune donnée trouvée pour {datetime.date(annee_selected, mois_selected, 1).strftime('%B %Y')}")
+                else:
+                    st.info("📭 Aucun historique disponible.")
+                    
+            except Exception as e:
+                st.error(f"Erreur de récupération : {e}")
+        
+        # Ancien bouton de téléchargement JSON local (backup)
         try:
             with open("backup_securite_loto.json", "r", encoding="utf-8") as f:
                 contenu_json = f.read()
             st.download_button(
-                label="👑 [ADMIN] Télécharger le Rapport JSON",
+                label="💾 [ADMIN] Backup Local JSON",
                 data=contenu_json,
                 file_name="backup_securite_loto.json",
                 mime="application/json"
             )
         except:
-            st.caption("ℹ Aucun historique local pour le moment.")
+            st.caption("ℹ Aucun backup local pour le moment.")
 
     if st.button("🚪 Se déconnecter"):
         st.session_state.employe = None
