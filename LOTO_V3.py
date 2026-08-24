@@ -153,8 +153,8 @@ elif st.session_state.employe["matricule"] == "EMP-5678":
             st.session_state.page_admin = "telechargement"
     
     with col2:
-        if st.button("🏷️ Tags"):
-            st.session_state.page_admin = "tags"
+        if st.button("➕ Insertion"):
+            st.session_state.page_admin = "insertion"
     
     with col3:
         if st.button("🗄️ Base de Données"):
@@ -269,40 +269,222 @@ elif st.session_state.employe["matricule"] == "EMP-5678":
         except Exception as e:
             st.error(f"Erreur de récupération : {e}")
     
-    # PAGE 2 : GESTION DES TAGS
-    elif st.session_state.page_admin == "tags":
-        st.markdown("<h4 style='color: #e74c3c;'>🏷️ Gestion des Tags</h4>", unsafe_allow_html=True)
+    # PAGE 2 : INSERTION DE DONNÉES
+    elif st.session_state.page_admin == "insertion":
+        st.markdown("<h4 style='color: #27ae60;'>➕ Insertion de Nouveaux Enregistrements</h4>", unsafe_allow_html=True)
         
-        st.info("Fonctionnalité de gestion des tags en développement...")
+        # Sélectionner le type de données à insérer
+        type_insertion = st.radio(
+            "Que voulez-vous ajouter ?",
+            ["Nouvel Employé", "Nouveau Système", "Nouvel Équipement"],
+            horizontal=True
+        )
         
-        # Exemple de structure
-        try:
-            res_tags = supabase.table("tags").select("*").execute()
-            if res_tags.data:
-                df_tags = pd.DataFrame(res_tags.data)
-                st.dataframe(df_tags, use_container_width=True)
-            else:
-                st.write("Aucun tag trouvé.")
-        except:
-            st.warning("Table 'tags' non trouvée dans la base de données.")
+        st.write("---")
+        
+        # ================= INSERTION EMPLOYÉ =================
+        if type_insertion == "Nouvel Employé":
+            st.markdown("<h5 style='color: #e74c3c;'>👤 Ajouter un Nouvel Employé</h5>", unsafe_allow_html=True)
+            
+            with st.container(border=True):
+                col_emp1, col_emp2 = st.columns(2)
+                
+                with col_emp1:
+                    emp_matricule = st.text_input(
+                        "🆔 Matricule (Obligatoire)",
+                        placeholder="EMP-1234",
+                        key="emp_matricule"
+                    )
+                    emp_nom = st.text_input(
+                        "👤 Nom Prénom (Obligatoire)",
+                        placeholder="Jean Dupont",
+                        key="emp_nom"
+                    )
+                
+                with col_emp2:
+                    emp_pin = st.text_input(
+                        "🔐 Code PIN (Obligatoire)",
+                        placeholder="1234",
+                        key="emp_pin",
+                        type="password"
+                    )
+                    emp_poste = st.text_input(
+                        "💼 Poste",
+                        placeholder="Technicien",
+                        key="emp_poste"
+                    )
+                
+                if st.button("✅ Ajouter Employé", type="primary", use_container_width=True):
+                    if emp_matricule and emp_nom and emp_pin:
+                        try:
+                            new_emp = {
+                                "matricule": emp_matricule,
+                                "nom_prenom": emp_nom,
+                                "code_confidentiel": emp_pin,
+                                "poste": emp_poste if emp_poste else "Non défini"
+                            }
+                            supabase.table("employes").insert([new_emp]).execute()
+                            st.success(f"✅ Employé '{emp_nom}' ajouté avec succès !")
+                            st.balloons()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erreur : {str(e)}")
+                    else:
+                        st.warning("⚠️ Veuillez remplir tous les champs obligatoires (Matricule, Nom, PIN)")
+        
+        # ================= INSERTION SYSTÈME =================
+        elif type_insertion == "Nouveau Système":
+            st.markdown("<h5 style='color: #3498db;'>🏭 Ajouter un Nouveau Système</h5>", unsafe_allow_html=True)
+            
+            with st.container(border=True):
+                col_sys1, col_sys2 = st.columns(2)
+                
+                with col_sys1:
+                    sys_nom = st.text_input(
+                        "📋 Nom du Système (Obligatoire)",
+                        placeholder="Ligne d'embouteillage A",
+                        key="sys_nom"
+                    )
+                    sys_code = st.text_input(
+                        "📱 Code QR (Obligatoire)",
+                        placeholder="SYS-LIGNE-A",
+                        key="sys_code"
+                    )
+                
+                with col_sys2:
+                    sys_localisation = st.text_input(
+                        "📍 Localisation",
+                        placeholder="Atelier A - Zone 1",
+                        key="sys_localisation"
+                    )
+                
+                sys_description = st.text_area(
+                    "📝 Description du Système",
+                    placeholder="Décrivez les caractéristiques du système...",
+                    key="sys_description",
+                    height=100
+                )
+                
+                if st.button("✅ Ajouter Système", type="primary", use_container_width=True):
+                    if sys_nom and sys_code:
+                        try:
+                            new_sys = {
+                                "nom": sys_nom,
+                                "code_qr_recherche": sys_code,
+                                "localisation": sys_localisation if sys_localisation else "Non définie",
+                                "description": sys_description if sys_description else "Aucune description"
+                            }
+                            supabase.table("systemes").insert([new_sys]).execute()
+                            st.success(f"✅ Système '{sys_nom}' ajouté avec succès !")
+                            st.balloons()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erreur : {str(e)}")
+                    else:
+                        st.warning("⚠️ Veuillez remplir les champs obligatoires (Nom, Code QR)")
+        
+        # ================= INSERTION ÉQUIPEMENT =================
+        elif type_insertion == "Nouvel Équipement":
+            st.markdown("<h5 style='color: #f39c12;'>⚙️ Ajouter un Nouvel Équipement</h5>", unsafe_allow_html=True)
+            
+            # Récupérer les systèmes disponibles
+            try:
+                res_systemes = supabase.table("systemes").select("id, nom").execute()
+                systemes_list = {s["nom"]: s["id"] for s in res_systemes.data} if res_systemes.data else {}
+            except:
+                systemes_list = {}
+            
+            with st.container(border=True):
+                col_eq1, col_eq2 = st.columns(2)
+                
+                with col_eq1:
+                    eq_nom = st.text_input(
+                        "⚙️ Nom Équipement (Obligatoire)",
+                        placeholder="Moteur Principal",
+                        key="eq_nom"
+                    )
+                    eq_type = st.text_input(
+                        "🔧 Type",
+                        placeholder="Moteur / Pompe / Valve",
+                        key="eq_type"
+                    )
+                
+                with col_eq2:
+                    if systemes_list:
+                        eq_systeme_nom = st.selectbox(
+                            "🏭 Système Associé (Obligatoire)",
+                            list(systemes_list.keys()),
+                            key="eq_systeme_select"
+                        )
+                        eq_systeme_id = systemes_list[eq_systeme_nom]
+                    else:
+                        st.warning("❌ Aucun système disponible. Créez d'abord un système.")
+                        eq_systeme_id = None
+                
+                eq_description = st.text_area(
+                    "📝 Description",
+                    placeholder="Caractéristiques de l'équipement...",
+                    key="eq_description",
+                    height=100
+                )
+                
+                if st.button("✅ Ajouter Équipement", type="primary", use_container_width=True, disabled=(eq_systeme_id is None)):
+                    if eq_nom and eq_systeme_id:
+                        try:
+                            new_eq = {
+                                "nom_equipement": eq_nom,
+                                "type": eq_type if eq_type else "Non défini",
+                                "systeme_id": eq_systeme_id,
+                                "description": eq_description if eq_description else "Aucune description"
+                            }
+                            supabase.table("equipments").insert([new_eq]).execute()
+                            st.success(f"✅ Équipement '{eq_nom}' ajouté avec succès !")
+                            st.balloons()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erreur : {str(e)}")
+                    else:
+                        st.warning("⚠️ Veuillez remplir les champs obligatoires")
     
     # PAGE 3 : GESTION BASE DE DONNÉES
     elif st.session_state.page_admin == "base_donnees":
         st.markdown("<h4 style='color: #27ae60;'>🗄️ Gestion Base de Données</h4>", unsafe_allow_html=True)
         
-        st.info("Fonctionnalité de gestion de la base de données en développement...")
-        
         # Sélectionner une table à visualiser
         table_choice = st.selectbox(
             "Sélectionner une table :",
-            ["employes", "systemes", "equipments", "historique_consignations"]
+            ["employes", "systemes", "equipments", "historique_consignations"],
+            key="table_select"
         )
         
+        st.write("---")
+        
         try:
-            res_table = supabase.table(table_choice).select("*").limit(50).execute()
+            res_table = supabase.table(table_choice).select("*").limit(100).execute()
             if res_table.data:
                 df_table = pd.DataFrame(res_table.data)
+                st.markdown(f"**📊 {len(df_table)} entrées dans '{table_choice}'**")
                 st.dataframe(df_table, use_container_width=True)
+                
+                # ================= SECTION SUPPRESSION =================
+                st.markdown("<h5 style='color: #e74c3c;'>🗑️ Supprimer un enregistrement</h5>", unsafe_allow_html=True)
+                
+                if 'id' in df_table.columns:
+                    col_del1, col_del2 = st.columns([3, 1])
+                    with col_del1:
+                        id_to_delete = st.selectbox(
+                            "Sélectionner l'ID à supprimer :",
+                            df_table['id'].tolist(),
+                            key=f"delete_{table_choice}"
+                        )
+                    with col_del2:
+                        if st.button("❌ Supprimer", type="secondary", key=f"btn_del_{table_choice}"):
+                            try:
+                                supabase.table(table_choice).delete().eq("id", id_to_delete).execute()
+                                st.success(f"✅ Enregistrement {id_to_delete} supprimé de '{table_choice}'")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erreur lors de la suppression : {e}")
             else:
                 st.write(f"Aucune donnée dans '{table_choice}'.")
         except Exception as e:
