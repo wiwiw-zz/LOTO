@@ -286,14 +286,14 @@ elif st.session_state.employe["matricule"] == "EMP-5678":
                                 st.error(f"Erreur JSON : {e}")
 
                         with col3:
-                            # Télécharger en CSV
+                            # Télécharger en CSV (UTF-8 BOM + point-virgule pour compat Excel local)
                             try:
-                                csv_data = df_out.to_csv(index=False, encoding='utf-8')
+                                csv_data = df_out.to_csv(index=False, sep=';', encoding='utf-8-sig')
                                 st.download_button(
                                     label="📋 CSV",
                                     data=csv_data,
                                     file_name=f"historique_loto_{annee_selected}-{mois_selected:02d}.csv",
-                                    mime="text/csv"
+                                    mime="text/csv; charset=utf-8"
                                 )
                             except Exception as e:
                                 st.error(f"Erreur CSV : {e}")
